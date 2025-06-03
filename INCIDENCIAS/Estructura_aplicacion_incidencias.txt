@@ -1,0 +1,81 @@
+CONSULTAS/
+│
+├── app/
+│   ├── api/
+│   │   ├── dashboard_api.py
+│   │   ├── incidencias_api.py
+│   │   └── incident_api.py
+│   │
+│   ├── database/
+│   │   └── sqlserver.py
+│   │
+│   ├── routes/
+│   │   ├── auth.py
+│   │   ├── dashboard.py
+│   │   ├── home.py
+│   │   ├── incidencias.py
+│   │   ├── mapa.py
+│   │   └── reportar.py
+│   │
+│   ├── services/
+│   │   ├── incident_service.py
+│   │   ├── mailer.py
+│   │   ├── utils.py
+│   │   └── vano_service.py
+│   │
+│   ├── static/
+│   │   ├── css/
+│   │   │   └── styles.css
+│   │   │
+│   │   ├── data/
+│   │   │   ├── redes.geojson
+│   │   │   └── redes.geojson.gz
+│   │   │
+│   │   ├── img/
+│   │   │   ├── favicon.png
+│   │   │   └── pegman.png
+│   │   │
+│   │   ├── js/
+│   │   │   ├── dashboard.js
+│   │   │   ├── formulario.js
+│   │   │   ├── incidencias.js
+│   │   │   ├── mapa.js
+│   │   │   └── scripts.js
+│   │   │
+│   │   ├── uploads/
+│   │   │   ├── cierre/
+│   │   │   └── reporte/
+│   │   │
+│   │   └── vendor/
+│   │       ├── bootstrap/
+│   │       ├── fontawesome/
+│   │       ├── heatmap/
+│   │       ├── jquery/
+│   │       ├── leaflet/
+│   │       ├── markercluster/
+│   │       ├── metismenu/
+│   │       ├── tom-select/
+│   │       └── xlsx/
+│   │
+│   ├── tasks/
+│   │   └── generate_redes_geojson.py
+│   │
+│   ├── templates/
+│   │   ├── base.html
+│   │   ├── dashboard.html
+│   │   ├── home.html
+│   │   ├── incidencias.html
+│   │   ├── map.html
+│   │   ├── not_ready.html
+│   │   └── report.html
+│   │
+│   ├── __init__.py
+│   └── models.py
+│
+├── frontend/
+│
+├── config.py
+├── init_db.py
+├── readme.txt
+├── requirements.txt
+└── run.py

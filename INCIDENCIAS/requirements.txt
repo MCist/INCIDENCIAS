@@ -1,0 +1,6 @@
+Flask
+Flask-SQLAlchemy
+psycopg2-binary
+pyodbc
+Flask-APScheduler>=1.12.0
+pytz
