@@ -1,0 +1,193 @@
+/* app/static/css/styles.css */
+body {
+  overflow-x: hidden;
+}
+
+.navbar-default {
+  width: 250px;
+  position: fixed;
+  top: 0;
+  left: 0;
+  height: 100%;
+  overflow-y: auto;               /* scroll nativo */
+  background-color: #2f4050;
+  z-index: 1000;
+  transition: margin 0.3s;
+}
+
+body.mini-navbar .navbar-default {
+  margin-left: -250px;
+}
+
+#side-menu li {
+  white-space: nowrap;
+}
+
+.nav > li > a {
+  color: #ffffff;
+  padding: 10px 20px;
+  display: block;
+}
+
+.nav > li > a:hover {
+  background-color: #1ab394;
+  color: white;
+}
+
+.nav-header {
+  padding: 20px;
+  background: #293846;
+  text-align: center;
+}
+
+.nav-header strong {
+  color: #fff;
+  font-size: 16px;
+}
+
+#page-wrapper {
+  margin-left: 250px;
+  padding: 20px;
+  min-height: 100vh;
+  transition: margin 0.3s;
+}
+
+body.mini-navbar #page-wrapper {
+  margin-left: 0;
+}
+
+.gray-bg {
+  background-color: #f3f3f4;
+}
+
+.footer {
+  padding: 10px;
+  text-align: center;
+  font-size: 14px;
+  color: #888;
+}
+
+.navbar-minimalize {
+  margin-left: 10px;
+}
+
+.ibox {
+  background: white;
+  border-radius: 8px;
+  box-shadow: 0 0 15px rgba(0,0,0,0.1);
+  padding: 20px;
+}
+
+.ibox-title {
+  background-color: #00bcd4;
+  padding: 10px 15px;
+  border-radius: 5px 5px 0 0;
+}
+
+.ibox-title h5 {
+  color: white;
+  margin: 0;
+}
+
+.btn {
+  font-weight: bold;
+  padding: 8px 18px;
+  border-radius: 6px;
+}
+
+.btn-success {
+  background-color: #28a745;
+  border: none;
+}
+
+.btn-primary {
+  background-color: #007bff;
+  border: none;
+}
+
+.btn-secondary {
+  background-color: #6c757d;
+  border: none;
+}
+
+@media (max-width: 768px) {
+  .navbar-default {
+    width: 220px;
+  }
+}
+
+.custom-cluster-icon {
+  text-align: center;
+  font-size: 14px;
+  font-weight: bold;
+  line-height: 40px;
+}
+
+/*  ───────────   Dashboard charts   ───────────  */
+.chart-donut {
+  height: 260px !important;
+  max-width: 260px;
+  margin: 0 auto;
+}
+
+.chart-bar {
+  height: 360px !important;
+}
+
+.chart-alim {
+  height: 380px !important;
+}
+
+#wrap-alimentador {
+  overflow-x: auto;
+  padding-bottom: 10px;
+}
+
+#wrap-alimentador canvas {
+  pointer-events: none;
+}
+
+.progress-bar[lvl="alta"]  { background: #dc3545; }
+.progress-bar[lvl="media"] { background: #fd7e14; }
+.progress-bar[lvl="baja"]  { background: #ffc107; }
+.progress-bar[lvl="leve"]  { background: #198754; }
+
+/* ————————————————————————————————
+   1) Quitar subrayado en enlaces del sidebar
+————————————————————————————————— */
+.navbar-default .nav a {
+  text-decoration: none !important;
+}
+
+/* ──────────────── SUBMENÚS ──────────────── */
+
+/* 1) Oculta todos los submenús */
+.nav-second-level {
+  display: none;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+/* 2) Cuando el LI padre tenga .open, lo mostramos */
+.nav > li.open > .nav-second-level {
+  display: block;
+}
+
+/* 3) LI y enlaces del segundo nivel en bloque vertical */
+.nav-second-level > li {
+  margin: 0;
+  padding: 0;
+}
+.nav-second-level > li > a {
+  display: block;
+  width: 100%;
+  padding: 10px 30px !important;
+  white-space: normal;            /* permite wrap si el texto es largo */
+  text-decoration: none !important;
+  color: #ffffff;
+}
+.nav-second-level > li > a:hover {
+  background-color: #1ab394;
+  color: #fff;
+}
