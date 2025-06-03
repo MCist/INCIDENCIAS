@@ -1,0 +1,18 @@
+<!-- app/templates/home.html -->
+{% extends "base.html" %}
+{% block title %}Inicio{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-12 text-center mt-5">
+    <h1 class="text-navy">Gestión de Incidencias</h1>
+    <p class="lead">Seleccione una opción del menú lateral para comenzar</p>
+    <hr>
+    <div class="mt-4">
+      <a href="{{ url_for('reportar.reportar') }}" class="btn btn-primary btn-lg"><i class="fa fa-plus"></i> Reportar Incidencia</a>
+      <a href="{{ url_for('mapa.mapa') }}" class="btn btn-success btn-lg"><i class="fa fa-map"></i> Ver Mapa</a>
+      <a href="{{ url_for('dashboard.dashboard') }}" class="btn btn-info btn-lg"><i class="fa fa-bar-chart"></i> Ver Dashboard</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

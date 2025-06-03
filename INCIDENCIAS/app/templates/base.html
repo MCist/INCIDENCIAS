@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Sistema de Incidencias{% endblock %}</title>
+  <link rel="shortcut icon" href="{{ url_for('static', filename='img/favicon.png') }}">
+
+  <!-- CSS desde CDN -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/bootstrap/css/bootstrap.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/fontawesome/css/all.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/metismenu/metisMenu.min.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='vendor/tom-select/css/tom-select.css') }}">
+
+  <!-- Estilos personalizados -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+
+  {% block extra_head %}{% endblock %}
+</head>
+
+<body class="fixed-sidebar">
+  <div id="wrapper">
+    <!-- Menú lateral -->
+    <nav class="navbar-default navbar-static-side" role="navigation">
+      <div class="sidebar-collapse">
+        <ul class="nav metismenu" id="side-menu">
+          <li class="nav-header">
+            <strong>ELECTRONOROESTE S.A.</strong>
+          </li>
+
+          <!-- 1. Inicio -->
+          <li>
+            <a href="{{ url_for('home.home') }}">
+              <i class="fa fa-home"></i>
+              <span class="nav-label">Inicio</span>
+            </a>
+          </li>
+
+          <!-- 2. Interrupciones -->
+          <li>
+            <a href="#">
+              <i class="fa fa-bolt"></i>
+              <span class="nav-label">Interrupciones</span>
+              <span class="fa arrow"></span>
+            </a>
+            <ul class="nav nav-second-level">
+              <li><a href="{{ url_for('metrics.saidi_saifi') }}">Indicadores SAIDI/SAIFI</a></li>
+              <li><a href="{{ url_for('analysis.fallas') }}">Análisis de Fallas</a></li>
+              <li><a href="{{ url_for('calls.interrupciones') }}">Llamadas por Interrupciones</a></li>
+            </ul>
+          </li>
+
+          <!-- 3. Reporte de incidencias -->
+          <li>
+            <a href="#">
+              <i class="fa fa-exclamation-triangle"></i>
+              <span class="nav-label">Reporte de Incidencias</span>
+              <span class="fa arrow"></span>
+            </a>
+            <ul class="nav nav-second-level">
+              <li><a href="{{ url_for('incidencias.incidencias') }}">Ver Incidencia</a></li>
+              <li><a href="{{ url_for('reportar.reportar') }}">Reportar Incidencia</a></li>
+              <li><a href="{{ url_for('mapa.mapa') }}">Mapa de Incidencias</a></li>
+              <li><a href="{{ url_for('dashboard.dashboard') }}">Dashboard</a></li>
+            </ul>
+          </li>
+
+          <!-- 4. Demandas eléctricas -->
+          <li>
+            <a href="#">
+              <i class="fa fa-chart-line"></i>
+              <span class="nav-label">Demandas Eléctricas</span>
+              <span class="fa arrow"></span>
+            </a>
+            <ul class="nav nav-second-level">
+              <li><a href="{{ url_for('demandas.maximas') }}">Máximas Demandas</a></li>
+              <li><a href="{{ url_for('demandas.perfiles') }}">Perfiles</a></li>
+              <li><a href="{{ url_for('demandas.realtime') }}">Tiempo Real</a></li>
+            </ul>
+          </li>
+        </ul>
+      </div>
+    </nav>
+
+    <!-- Contenido principal -->
+    <div id="page-wrapper" class="gray-bg">
+      <!-- Barra superior -->
+      <div class="row border-bottom">
+        <nav class="navbar navbar-expand-lg navbar-light bg-white w-100">
+          <div class="container-fluid">
+            <button class="navbar-minimalize btn btn-primary" id="menu-toggle">
+              <i class="fa fa-bars"></i>
+            </button>
+            <div class="d-flex ms-auto">
+              <span class="nav-link text-muted me-3">Usuario: {{ os_user }}</span>
+            </div>
+          </div>
+        </nav>
+      </div>
+
+      <!-- Contenido dinámico -->
+      <div class="wrapper wrapper-content mt-3">
+        {% block content %}{% endblock %}
+      </div>
+
+      <!-- Footer -->
+      <div class="footer">
+        &copy; 2025 Gerencia Técnica - ENOSA
+      </div>
+    </div>
+  </div>
+
+  <!-- JS desde CDN -->
+  <script src="{{ url_for('static', filename='vendor/jquery/jquery-3.7.1.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/metismenu/metisMenu.min.js') }}"></script>
+
+  <!-- JS personalizados -->
+  <script src="{{ url_for('static', filename='js/scripts.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/formulario.js') }}"></script>
+  <script src="{{ url_for('static', filename='vendor/tom-select/js/tom-select.complete.min.js') }}"></script>
+
+  {% block extra_js %}{% endblock %}
+</body>
+</html>

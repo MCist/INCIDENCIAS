@@ -1,0 +1,124 @@
+<!-- app/templates/dashboard.html -->
+{% extends 'base.html' %}
+{% block title %}Dashboard de Incidencias{% endblock %}
+
+{% block extra_head %}
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+{% endblock %}
+
+{% block content %}
+  <!-- PANEL GLOBAL DE FILTROS (dos filas) -->
+  <div class="row gx-2 gy-1 mb-3">
+    <!-- Primera fila: selects -->
+    <div class="col-auto">
+      <label class="form-label small">Área</label>
+      <select id="fArea" class="form-select form-select-sm">
+        <option value="">Todas</option>
+        {% for a in areas_responsables %}
+          <option value="{{ a.id }}">{{ a.nombre_area }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label small">Alimentador</label>
+      <select id="fAli" class="form-select form-select-sm">
+        <option value="">Todos</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label small">Criticidad</label>
+      <select id="fCrit" class="form-select form-select-sm">
+        <option value="">Todas</option>
+        <option value="alta">Alta</option>
+        <option value="media">Media</option>
+        <option value="baja">Baja</option>
+        <option value="leve">Leve</option>
+      </select>
+    </div>
+    <div class="col-auto">
+      <label class="form-label small">Estado</label>
+      <select id="fEst" class="form-select form-select-sm">
+        <option value="">Todos</option>
+        <option value="Abierto">Abierto</option>
+        <option value="Cerrado">Cerrado</option>
+      </select>
+    </div>
+
+    <!-- Segunda fila: antigüedad como radio-inline -->
+    <div class="col-12">
+      <label class="form-label small">Antigüedad</label>
+      <div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="fAnt" id="ant-todas" value="" checked>
+          <label class="form-check-label small" for="ant-todas">Todas</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="fAnt" id="ant-hoy" value="hoy">
+          <label class="form-check-label small" for="ant-hoy">De hoy</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="fAnt" id="ant-7" value="7">
+          <label class="form-check-label small" for="ant-7">Últimos 7 días</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="fAnt" id="ant-15" value="15">
+          <label class="form-check-label small" for="ant-15">Últimos 15 días</label>
+        </div>
+        <div class="form-check form-check-inline">
+          <input class="form-check-input" type="radio" name="fAnt" id="ant-30" value="30">
+          <label class="form-check-label small" for="ant-30">30 días o más</label>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- KPI CARDS -->
+  <div class="row gx-3 gy-2 mb-4">
+    <div class="col-sm-6 col-md-3">
+      <div class="card text-center py-2">
+        <h6 class="mb-1 small">Total</h6>
+        <h2 id="kpi-total" class="mb-0">…</h2>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card text-center py-2">
+        <h6 class="mb-1 small">Abierto / Cerrado</h6>
+        <h2 id="kpi-ratio" class="mb-0">…</h2>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card text-center py-2">
+        <h6 class="mb-1 small">MTTR (h)</h6>
+        <h2 id="kpi-mttr" class="mb-0">…</h2>
+      </div>
+    </div>
+    <div class="col-sm-6 col-md-3">
+      <div class="card text-center py-2">
+        <h6 class="mb-1 small">Criticidad</h6>
+        <div id="kpi-crit" class="small">…</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- GRÁFICOS -->
+  <div class="row">
+    <div class="col-12" style="height:380px;">
+      <canvas id="chartAlimentador"></canvas>
+    </div>
+  </div>
+  <div class="row mt-3" id="container-por-tipo" style="display:none;">
+    <div class="col-md-6" style="height:300px;">
+      <h6 class="small">Incidencias por Tipo</h6>
+      <canvas id="chartPorTipo"></canvas>
+    </div>
+    <div class="col-md-6" style="height:300px;">
+      <h6 class="small">MTTR por Tipo (h)</h6>
+      <canvas id="chartMttrTipo"></canvas>
+    </div>
+  </div>
+{% endblock %}
+
+{% block extra_js %}
+  <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+
+{% endblock %}

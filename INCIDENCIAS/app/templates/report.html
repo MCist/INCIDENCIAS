@@ -1,0 +1,262 @@
+{% extends "base.html" %}
+{% block title %}Registrar Incidencia{% endblock %}
+
+{% block extra_head %}
+  <!-- TomSelect CSS (necesario antes de instanciar TomSelect en formulario.js) -->
+  <link
+    href="https://cdn.jsdelivr.net/npm/tom-select/dist/css/tom-select.css"
+    rel="stylesheet"
+  >
+{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-8 offset-lg-2">
+    <div class="ibox">
+      <div class="ibox-title bg-info text-white">
+        <h5><i class="fa fa-pencil-square-o"></i> Registro de Incidencias</h5>
+      </div>
+      <div class="ibox-content">
+
+        {% with messages = get_flashed_messages(with_categories=true) %}
+          {% if messages %}
+            {% for category, message in messages %}
+              <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+              </div>
+            {% endfor %}
+          {% endif %}
+        {% endwith %}
+
+        <form method="POST" autocomplete="off" enctype="multipart/form-data">
+          <div class="row">
+            <!-- ========================================== -->
+            <!-- Columna izquierda: datos de incidencia      -->
+            <!-- ========================================== -->
+            <div class="col-5">
+              <div class="form-group">
+                <label>Tipo de elemento</label>
+                <select name="tipo_elemento" id="tipo_elemento" class="form-control" required>
+                  <option value="">-- Seleccione --</option>
+                  <option value="Subestación de potencia">Subestación de Potencia</option>
+                  <option value="Proteccion/Control">Protección/Control</option>
+                  <option value="Subestacion">Subestación de distribución</option>
+                  <option value="Suministro">Suministro</option>
+                  <option value="Estructura MT">Estructura MT</option>
+                  <option value="Vano">Vano</option>
+                </select>
+              </div>
+
+              <!-- ─────────────────────────────────────────────────────── -->
+              <!-- 1) Campo “Código del elemento” (se oculta si tipo == Vano) -->
+              <!-- ─────────────────────────────────────────────────────── -->
+              <div class="form-group" id="wrap_codigo_elemento">
+                <label>Código del elemento</label>
+                <!-- Este <select> será poblado dinámicamente con TomSelect -->
+                <select name="codigo_elemento" id="codigo_elemento" class="form-control"></select>
+              </div>
+
+              <!-- ─────────────────────────────────────────────────────── -->
+              <!-- 2) BLOQUE “Vano”: envolver ambos selects en un mismo contenedor -->
+              <!-- ─────────────────────────────────────────────────────── -->
+              <div id="grupo_vano" style="display: none;">
+                <div class="form-group" id="wrap_codigo_inicio">
+                  <label>Código Estructura MT (Inicio)</label>
+                  <select name="codigo_inicio" id="codigo_inicio" class="form-control"></select>
+                </div>
+                <div class="form-group" id="wrap_codigo_fin">
+                  <label>Código Estructura MT (Fin)</label>
+                  <select name="codigo_fin" id="codigo_fin" class="form-control"></select>
+                </div>
+              </div>
+              <!-- ─────────────────────────────────────────────────────── -->
+
+              <div class="form-group">
+                <label>Área responsable</label>
+                <select name="area_responsable_id" id="area_responsable_id" class="form-control" required>
+                  <option value="">-- Seleccione --</option>
+                  {% for area in areas %}
+                    <option value="{{ area.id }}">{{ area.nombre_area }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Tipo de incidencia</label>
+                <select name="tipo_id" id="tipo_id" class="form-control" required></select>
+              </div>
+
+              <div class="form-group">
+                <label>Subir Evidencia (fotos, PDF, Word, Excel y correos.)</label>
+                <input type="file"
+                       name="evidencia"
+                       class="form-control"
+                       accept=".jpg,.jpeg,.png,
+                              .pdf,
+                              .doc,.docx,
+                              .xls,.xlsx,
+                              .msg"
+                       multiple>
+                <small class="form-text text-muted">
+                  Puede subir una o varias imágenes.
+                </small>
+              </div>
+
+              <div class="form-group">
+                <label>Responsable</label>
+                <select name="responsable_id" id="responsable_id" class="form-control" required>
+                  <option value="">-- Seleccione --</option>
+                  {% for r in responsables %}
+                    <option value="{{ r.id }}">{{ r.nombre }} - {{ r.area }}</option>
+                  {% endfor %}
+                </select>
+              </div>
+
+              <div class="form-group">
+                <label>Ocurrencia / Observación</label>
+                <textarea name="ocurrencia" class="form-control" rows="4" required></textarea>
+              </div>
+            </div>
+
+            <!-- ========================================== -->
+            <!-- Columna derecha: datos del elemento        -->
+            <!-- ========================================== -->
+            <div class="col-md-6">
+              <h5 class="text-primary">Datos del elemento</h5>
+
+              <div class="form-group">
+                <label>Descripción</label>
+                <input type="text" id="descripcion_elemento" class="form-control" readonly>
+              </div>
+
+              <!-- Campos comunes a todos los tipos -->
+              <div class="form-group">
+                <label>Alimentador</label>
+                <input type="text" id="ali_nombre" class="form-control" readonly>
+              </div>
+              <div class="form-group">
+                <label>U.E.</label>
+                <input type="text" id="uun_nombre" class="form-control" readonly>
+              </div>
+
+              <!-- PROTECCIÓN/CONTROL -->
+              <div id="grupo_pro_coords" style="display: none;">
+                <div class="form-group">
+                  <label>Nombre del propietario</label>
+                  <input type="text" id="nombre_propietario_pro" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Tipo de dispositivo</label>
+                  <input type="text" id="device_type" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Tensión Nominal (kV)</label>
+                  <input type="text" id="codtennomimt" class="form-control" readonly>
+                </div>
+              </div>
+
+              <!-- SUBESTACIÓN DISTRIBUCIÓN -->
+              <div id="grupo_sub_coords" style="display: none;">
+                <div class="form-group">
+                  <label>Dirección</label>
+                  <input type="text" id="direccion" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Nombre del propietario</label>
+                  <input type="text" id="nombre_propietario_sub" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Tensión BT</label>
+                  <input type="text" id="tension_bt" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Tensión MT</label>
+                  <input type="text" id="tension_mt" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Grupo de Conexión</label>
+                  <input type="text" id="subconectra_bt" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Potencia instalada</label>
+                  <input type="text" id="potencia" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Tipo de subestación</label>
+                  <input type="text" id="tipo_sub" class="form-control" readonly>
+                </div>
+              </div>
+
+              <!-- TRANSFORMADOR DE POTENCIA -->
+              <div id="grupo_trafo" style="display: none;">
+                <div class="form-group">
+                  <label>Nombre del trafo</label>
+                  <input type="text" id="nombre_trafo" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Código CT</label>
+                  <input type="text" id="codigo_trafo" class="form-control" readonly>
+                </div>
+              </div>
+
+              <!-- SUMINISTRO -->
+              <div id="grupo_suministro" style="display: none;">
+                <div class="form-group">
+                  <label>Código Suministro</label>
+                  <input type="text" id="cod_suministro" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Código Subestación</label>
+                  <input type="text" id="sub_codigo" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Circuito</label>
+                  <input type="text" id="circ_codigo" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Dirección</label>
+                  <input type="text" id="direccion_sum" class="form-control" readonly>
+                </div>
+              </div>
+
+              <!-- ESTRUCTURA MT -->
+              <div id="grupo_estructura_mt" style="display: none;">
+                <div class="form-group">
+                  <label>Código Nodo</label>
+                  <input type="text" id="cod_poste" class="form-control" readonly>
+                </div>
+                <div class="form-group">
+                  <label>Propietario</label>
+                  <input type="text" id="owner_type" class="form-control" readonly>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Coordenadas ocultas -->
+          <input type="hidden" name="coord_x_inicio" id="coord_x_inicio">
+          <input type="hidden" name="coord_y_inicio" id="coord_y_inicio">
+          <input type="hidden" name="coord_x_fin"    id="coord_x_fin">
+          <input type="hidden" name="coord_y_fin"    id="coord_y_fin">
+          <input type="hidden" name="alicodigo"      id="alicodigo">
+
+          <!-- Botones -->
+          <div class="d-flex justify-content-end mt-4">
+            <button type="submit" class="btn btn-success me-2">Guardar</button>
+            <button type="reset" class="btn btn-secondary">Limpiar</button>
+          </div>
+        </form>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+  <!-- TomSelect JS (necesario antes de formulario.js) -->
+  <script src="https://cdn.jsdelivr.net/npm/tom-select/dist/js/tom-select.complete.min.js"></script>
+  <!-- Tu script con la lógica “hide/show” y TomSelect(...) -->
+  <script src="{{ url_for('static', filename='js/formulario.js') }}"></script>
+{% endblock %}

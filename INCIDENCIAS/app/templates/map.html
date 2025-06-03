@@ -1,0 +1,136 @@
+<!-- app/templates/map.html -->
+{% extends "base.html" %}
+{% block title %}Mapa de Incidencias{% endblock %}
+
+{% block content %}
+<div class="row">
+  <div class="col-lg-12">
+    <div class="ibox">
+      <div class="ibox-title bg-info text-white d-flex justify-content-between align-items-center">
+        <h5><i class="fa fa-map-marker-alt"></i> Mapa de Incidencias</h5>
+        <div class="form-inline">
+          <label for="vistaSelector" class="form-label me-2 mb-0"><strong>Vista:</strong></label>
+          <select id="vistaSelector" class="form-select form-select-sm d-inline-block w-auto">
+            <option value="auto" selected>Automático</option>
+            <option value="heat">Solo Heatmap</option>
+            <option value="cluster">Solo Clusters</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="ibox-content position-relative">
+        <!-- Filtros Avanzados -->
+        <div class="row mb-3">
+          <div class="col-md-3">
+            <label for="filtroEstado">Estado:</label>
+            <select id="filtroEstado" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              <option value="Abierto">Abiertas</option>
+              <option value="Cerrado">Cerradas</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="filtroAli">Alimentador:</label>
+            <select id="filtroAli" class="form-select form-select-sm">
+              <option value="">Todos</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="filtroArea">Área Responsable:</label>
+            <select id="filtroArea" class="form-select form-select-sm">
+              <option value="">Todas</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="filtroCriticidad">Criticidad:</label>
+            <select id="filtroCriticidad" class="form-select form-select-sm">
+              <option value="">Todas</option>
+              <option value="alta">Alta (rojo)</option>
+              <option value="media">Media (naranja)</option>
+              <option value="baja">Baja (amarillo)</option>
+              <option value="leve">Leve (gris)</option>
+            </select>
+          </div>
+          <!-- NUEVO: filtro de TIPO DE INCIDENCIA -->
+          <div class="col-md-3">
+            <label for="filtroTipo">Tipo de Incidencia:</label>
+            <select id="filtroTipo" class="form-select form-select-sm">
+              <option value="">Todos</option>
+            </select>
+          </div>
+  
+        </div>
+
+        <!-- Resumen Dinámico -->
+        <div id="resumenMapa" class="mb-3 d-flex align-items-center">
+          <h6 class="mb-0"><i class="fa fa-list-ul"></i> Resumen:</h6>
+          <div class="d-flex flex-wrap gap-3 small ms-3" id="resumenContenido"></div>
+          <button id="descargarDatos" class="btn btn-outline-primary btn-sm ms-2">
+            <i class="fa fa-download"></i> Descargar
+          </button>
+        </div>
+        
+
+        <!-- Contenedor del mapa -->
+        <div id="map" style="height: 600px; position:relative"></div>
+          <button
+            id="centrarMapa"
+            class="btn btn-outline-secondary btn-sm leaflet-control leaflet-bar"
+            style="
+              position: absolute;
+              bottom: 20px;
+              right: 10px;
+              z-index: 1000;
+              cursor: pointer;
+            ">
+            <i class="fa fa-crosshairs"></i>
+          </button>
+          <!-- Filtro Antigüedad flotante -->
+          <div id="filtroAntiguedadBox" class="leaflet-control bg-white shadow p-2 rounded"
+               style="position: absolute; top: 250px; left: 10px; z-index: 1000; width: 160px;">
+            <strong style="font-size: 13px;">Antigüedad:</strong><br>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="filtroAntiguedad" id="ant1" value="0">
+              <label class="form-check-label small" for="ant1">Nuevas (hoy)</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="filtroAntiguedad" id="ant7" value="7">
+              <label class="form-check-label small" for="ant7">Más de 7 días</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="filtroAntiguedad" id="ant15" value="15">
+              <label class="form-check-label small" for="ant15">Más de 15 días</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="filtroAntiguedad" id="ant30" value="30" checked>
+              <label class="form-check-label small" for="ant30">Más de 30 días</label>
+            </div>
+            <div class="form-check">
+              <input class="form-check-input" type="radio" name="filtroAntiguedad" id="antTodas" value="" checked>
+              <label class="form-check-label small" for="antTodas">Todas</label>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/leaflet/leaflet.css') }}">
+<script src="{{ url_for('static', filename='vendor/leaflet/leaflet.js') }}"></script>
+
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/markercluster/MarkerCluster.css') }}">
+<link rel="stylesheet" href="{{ url_for('static', filename='vendor/markercluster/MarkerCluster.Default.css') }}">
+<script src="{{ url_for('static', filename='vendor/markercluster/leaflet.markercluster.js') }}"></script>
+
+<script src="{{ url_for('static', filename='vendor/heatmap/leaflet-heat.js') }}"></script>
+
+<script id="coordenadas-data" type="application/json">
+  {{ coordenadas | tojson }}
+</script>
+<script src="https://cdn.sheetjs.com/xlsx-latest/package/dist/xlsx.full.min.js"></script>
+<script src="{{ url_for('static', filename='js/mapa.js') }}"></script>
+{% endblock %}
