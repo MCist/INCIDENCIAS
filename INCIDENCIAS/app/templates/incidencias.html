@@ -21,6 +21,13 @@
       <option value="Cerrado">Cerrado</option>
     </select>
   </div>
+  
+  <div class="col-md-2">
+    <label class="form-label mb-0">Tipo de elemento</label>
+    <select id="fTipoEl" class="form-select">
+      <option value="">Todos</option>   <!-- se llenará con JS -->
+    </select>
+  </div>
 
   <div class="col-md-2">
     <label class="form-label mb-0">Alimentador</label>
@@ -61,7 +68,7 @@
   <thead>
     <tr>
       <th>ID</th><th>Código</th><th>Alimentador</th><th>Descripción</th><th>Área</th>
-      <th>Tipo</th><th>Criticidad</th><th>Estado</th><th>Fecha</th><th>Acción</th>
+      <th>Tipo</th><th>Criticidad</th><th>Estado</th><th>Fecha Ocurrencia</th><th>Acción</th>
     </tr>
   </thead>
   <tbody></tbody>
@@ -79,19 +86,34 @@
 
         <div class="mb-3">
           <label for="edt_tipo" class="form-label">Tipo de elemento</label>
-          <select id="edt_tipo" name="tipo_elemento" class="form-select">
+          <select id="edt_tipo" name="tipo_elemento" class="form-select" required>
             <!-- Opciones debes recargarlas igual que en tu formulario original -->
           </select>
         </div>
 
-        <div class="mb-3">
-          <label for="edt_codigo" class="form-label">Código elemento</label>
-          <input id="edt_codigo" name="codigo_elemento" type="text" class="form-control">
+        <!-- envuelto: mostrará uno u otro según el tipo -->
+        <div id="grupo_editar_codigo_unico">
+          <div class="mb-3">
+            <label for="edt_codigo" class="form-label">Código elemento</label>
+            <input id="edt_codigo" name="codigo_elemento" type="text" class="form-control">
+          </div>
         </div>
+
+        <div id="grupo_editar_vano" style="display:none">
+          <div class="mb-3">
+            <label for="edt_ini" class="form-label">Código Estructura MT (Inicio)</label>
+            <select id="edt_ini" class="form-control"></select>
+          </div>
+          <div class="mb-3">
+            <label for="edt_fin" class="form-label">Código Estructura MT (Fin)</label>
+            <select id="edt_fin" class="form-control"></select>
+          </div>
+        </div>
+
 
         <div class="mb-3">
           <label for="edt_ocurrencia" class="form-label">Ocurrencia</label>
-          <textarea id="edt_ocurrencia" name="ocurrencia" class="form-control"></textarea>
+          <textarea id="edt_ocurrencia" name="ocurrencia" class="form-control" required></textarea>
         </div>
 
         <div class="mb-3">
@@ -105,11 +127,12 @@
           <!-- aquí mostraremos miniaturas o links a los archivos ya subidos -->
         </div>
       </div>
-
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
         <button type="submit" class="btn btn-primary">Guardar cambios</button>
       </div>
+      <input type="hidden" name="codigo_inicio" id="hid_ini">
+      <input type="hidden" name="codigo_fin"    id="hid_fin">
     </form>
   </div>
 </div>

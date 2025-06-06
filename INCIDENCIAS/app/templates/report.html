@@ -36,6 +36,15 @@
             <!-- ========================================== -->
             <div class="col-5">
               <div class="form-group">
+                <label>Fecha de ocurrencia</label>
+                <!-- Usa type="datetime-local" si necesitas hora -->
+                <input type="date"
+                       name="fecha_ocurrencia"
+                       id="fecha_ocurrencia"
+                       class="form-control"
+                       required>
+              </div>
+              <div class="form-group">
                 <label>Tipo de elemento</label>
                 <select name="tipo_elemento" id="tipo_elemento" class="form-control" required>
                   <option value="">-- Seleccione --</option>
