@@ -114,8 +114,8 @@ def mapa():
         else:
             # ● Si es “Vano”, llamamos a nuestro helper para obtener la polilínea
             #   (lista de puntos [lat, lng] que recorre todos los vanos intermedios).
-            trazado = obtener_trazo_vanos(
-                codigo_inicio=codigo_elemento.split('–')[0].strip(), 
+            camino, polilinea = obtener_trazo_vanos(
+                codigo_inicio=codigo_elemento.split('–')[0].strip(),
                 codigo_fin   =codigo_elemento.split('–')[-1].strip()
             )
 
@@ -139,7 +139,7 @@ def mapa():
                 'ocurrencia'    : ocurrencia,
                 'ev_rep'        : rep_urls,
                 'ev_cie'        : cie_urls,
-                'trazo'         : trazado  # <— array de [lat, lng] para cada segmento
+                'trazo'         : polilinea  # <— array de [lat, lng] para cada segmento
             })
 
     return render_template(
