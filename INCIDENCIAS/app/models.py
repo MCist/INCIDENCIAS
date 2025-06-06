@@ -6,7 +6,11 @@ from werkzeug.security import generate_password_hash, check_password_hash
 
 from app import db
 
-
+class Roles:
+    UCO = "jefatura_uco"
+    UMD = "jefatura_umd"
+    UMT = "jefatura_umt"
+    VIS = "visitante"
 # ------------------------------------------------------------------ #
 #  TABLA INTERMEDIA (many-to-many área  ←→  tipo de incidencia)
 # ------------------------------------------------------------------ #
@@ -38,6 +42,7 @@ class AreaResponsable(db.Model):
 # ------------------------------------------------------------------ #
 #  USUARIO
 # ------------------------------------------------------------------ #
+
 class Usuario(UserMixin, db.Model):
     __tablename__ = "usuarios"
 
@@ -45,7 +50,7 @@ class Usuario(UserMixin, db.Model):
     nombre   = db.Column(db.String(100), nullable=False)
     username = db.Column(db.String(50), unique=True, index=True)
     _pw_hash = db.Column("pw_hash", db.String(128))
-    rol      = db.Column(db.String(20), default="Responsable")        # Admin/Responsable/Visitante
+    rol      = db.Column(db.String(20), default=Roles.VIS)        # Admin/Responsable/Visitante
 
     id_area  = db.Column(db.Integer, db.ForeignKey("areas_responsables.id"))
     area     = db.relationship("AreaResponsable", backref="usuarios")
@@ -66,6 +71,11 @@ class Usuario(UserMixin, db.Model):
 
     def __repr__(self):
         return f"<Usuario {self.username}>"
+    # ---------- permisos ----------
+    def can_create(self):   return self.rol == Roles.UCO
+    def can_edit(self):     return self.rol == Roles.UCO      # editar fila
+    def can_close(self):    return self.rol in (Roles.UMD, Roles.UMT, Roles.UCO)
+    def can_validate(self): return self.rol == Roles.UCO
 
 
 # ------------------------------------------------------------------ #
@@ -95,6 +105,8 @@ class RegIncidencia(db.Model):
     __tablename__ = "reg_incidencias"
 
     id                = db.Column(db.Integer, primary_key=True)
+    fecha_ocurrencia = db.Column(db.DateTime, nullable=False,
+                                default=datetime.utcnow)  # valor por defecto si el usuario no pone nada
     tipo_elemento     = db.Column(db.String(50),  nullable=False)
     codigo_elemento   = db.Column(db.String(50),  nullable=False)
     descripcion_elemento = db.Column(db.String(200))
