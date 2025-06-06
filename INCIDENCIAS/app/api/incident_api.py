@@ -248,21 +248,34 @@ def relaciones():
 def validar_vano():
     ini = request.args.get('ini', '').strip()
     fin = request.args.get('fin', '').strip()
-
-    # Deben venir ambos códigos
     if not ini or not fin:
         return jsonify({'ok': False, 'error': 'Faltan parámetros'}), 400
 
-    # Llamamos a la función que ya valida internamente la ruta
     try:
-        polilinea = obtener_trazo_vanos(ini, fin)
+        camino, _ = obtener_trazo_vanos(ini, fin)   # <-- CAMBIO
     except Exception as e:
         current_app.logger.error(f"Error al validar vano {ini}–{fin}: {e}")
         return jsonify({'ok': False, 'error': 'Error interno'}), 500
 
-    if polilinea:
-        # Hay una ruta completa que conecta
-        return jsonify({'ok': True})
-    else:
-        # Ruta no encontrada o incompleta
-        return jsonify({'ok': False})
+    return jsonify({'ok': bool(camino)})
+
+
+@incident_api.route('/api/ruta_vano')
+def ruta_vano():
+    ini = request.args.get('ini', '').strip()
+    fin = request.args.get('fin', '').strip()
+
+    if not ini or not fin:
+        return jsonify({'error': 'Faltan parámetros'}), 400
+
+    try:
+        camino_vanos, polilinea = obtener_trazo_vanos(ini, fin)
+    except Exception as e:
+        current_app.logger.error(f"Error al obtener trazo_vano {ini}–{fin}: {e}")
+        return jsonify({'error': 'Error interno'}), 500
+
+    if not camino_vanos:
+        return jsonify({'ok': False, 'ruta': []})
+
+    # Devolvemos ok=true y la lista de puntos (lat, lon)
+    return jsonify({'ok': True, 'ruta': polilinea})

@@ -35,6 +35,7 @@ def lista_json():
     # ----------------------- filtros ---------------------------------
     estado = request.args.get("estado")
     resp   = request.args.get("responsable")
+    tipo_el = request.args.get('tipo_el')
     ali    = request.args.get("ali")
     crit = request.args.get("crit")
     f_ini  = request.args.get("f_ini")
@@ -44,9 +45,9 @@ def lista_json():
     if estado: q = q.filter(RegIncidencia.estado == estado)
     if resp  : q = q.filter(RegIncidencia.responsable_id == int(resp))
     if ali   : q = q.filter(RegIncidencia.alicodigo == ali)
-    if f_ini : q = q.filter(RegIncidencia.fecha_reporte >=
+    if f_ini : q = q.filter(RegIncidencia.fecha_ocurrencia >=
                             datetime.fromisoformat(f_ini))
-    if f_fin : q = q.filter(RegIncidencia.fecha_reporte <=
+    if f_fin : q = q.filter(RegIncidencia.fecha_ocurrencia <=
                             datetime.fromisoformat(f_fin))
     if search_term:
         q = q.filter(RegIncidencia.codigo_elemento.ilike(f"%{search_term}%"))
@@ -56,8 +57,13 @@ def lista_json():
         if crit != "alta":                       # limite superior
             upper = {"media":0.85, "baja":0.70, "leve":0.50}[crit]
             q = q.filter(TipoIncidencia.peso_tipo < upper)
+    if tipo_el:
+        # si viene “A,B,C” úsalo como IN (…) — o si es simple, como igualdad
+        tipos = [t.strip() for t in tipo_el.split(',') if t.strip()]
+        if tipos:
+            q = q.filter(RegIncidencia.tipo_elemento.in_(tipos))
     # --------------------- ordenamiento ------------------------------
-    order_col = request.args.get("order_col", "fecha")
+    order_col = request.args.get("order_col", "fecha_ocurrencia")
     order_dir = request.args.get("order_dir", "desc")
 
     col_map = {
@@ -68,10 +74,10 @@ def lista_json():
         "tipo"      : TipoIncidencia.tipoincidencia,
         "criticidad": TipoIncidencia.peso_tipo,
         "estado"    : RegIncidencia.estado,
-        "fecha"     : RegIncidencia.fecha_reporte,
+        "fecha_ocurrencia"     : RegIncidencia.fecha_ocurrencia,
     }
 
-    sort_expr = col_map.get(order_col, RegIncidencia.fecha_reporte)
+    sort_expr = col_map.get(order_col, RegIncidencia.fecha_ocurrencia)
     q = q.order_by(sort_expr.desc() if order_dir == "desc" else sort_expr.asc())
 
     # -------------------- paginación ---------------------------------
@@ -104,7 +110,7 @@ def lista_json():
         "tipo"      : inc.tipo.tipoincidencia,
         "criticidad": inc.tipo.peso_tipo,
         "estado"    : inc.estado,
-        "fecha"     : inc.fecha_reporte.strftime("%Y-%m-%d %H:%M"),
+        "fecha_ocurrencia"     : inc.fecha_ocurrencia.strftime("%d/%m/%Y"),
     } for inc in data]
 
     return jsonify({
@@ -161,9 +167,9 @@ def detalle_incidencia(inc_id):
     return jsonify({
         "ocurrencia"     : inc.ocurrencia,
         "tareas_cierre"  : inc.tareas_cierre,
-        "f_rep"          : inc.fecha_reporte.strftime("%Y-%m-%d %H:%M"),
+        "f_ocu"          : inc.fecha_ocurrencia.strftime("%d/%m/%Y"),
         "f_cie"          : inc.fecha_levantamiento and
-                           inc.fecha_levantamiento.strftime("%Y-%m-%d %H:%M"),
+                           inc.fecha_levantamiento.strftime("%d/%m/%Y"),
         "img_rep"        : '<br>'.join(rep_imgs),
         "img_cie"        : '<br>'.join(cie_imgs)
     })
