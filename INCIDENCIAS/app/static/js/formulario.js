@@ -5,6 +5,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
   // --- Referencias al DOM ---
   const tipoElemento       = document.getElementById('tipo_elemento');
+  const fechaOcurrenciaInput = document.getElementById('fecha_ocurrencia');
   const descripcionInput    = document.getElementById('descripcion_elemento');
   const coordXInicioInput   = document.getElementById('coord_x_inicio');
   const coordYInicioInput   = document.getElementById('coord_y_inicio');
