@@ -3,10 +3,9 @@
 import os
 import getpass
 from uuid import uuid4
-
 from flask import current_app
 from werkzeug.utils import secure_filename
-
+from datetime import datetime
 from app.models import RegIncidencia, EvidenciaIncidencia, db
 from app.services.utils import obtener_datos_elemento, allowed_file
 
@@ -42,9 +41,15 @@ def registrar_incidencia(form, files):
     coord_y_inicio      = form.get("coord_y_inicio")
     coord_x_fin         = form.get("coord_x_fin")
     coord_y_fin         = form.get("coord_y_fin")
+    fecha_str = form.get("fecha_ocurrencia")  # esperado ISO-8601: “2025-06-05” o “2025-06-05T14:30”
+    try:
+        fecha_ocurrencia = (datetime.fromisoformat(fecha_str)
+                            if fecha_str else None)
+    except ValueError:
+        return None, "Fecha de ocurrencia inválida."
 
     # Validación de campos obligatorios
-    requeridos = [tipo_elemento, ocurrencia, responsable_id, tipo_id, area_responsable_id]
+    requeridos = [tipo_elemento, ocurrencia, responsable_id, tipo_id, area_responsable_id, fecha_ocurrencia]
     if tipo_elemento != 'Vano':
         requeridos.append(codigo_elemento)
     if not all(requeridos):
@@ -60,6 +65,7 @@ def registrar_incidencia(form, files):
     nueva = RegIncidencia(
         tipo_elemento        = tipo_elemento,
         codigo_elemento      = codigo_elemento,
+        fecha_ocurrencia = fecha_ocurrencia,
         descripcion_elemento = descripcion,
         coord_x_inicio       = float(coord_x_inicio) if coord_x_inicio else None,
         coord_y_inicio       = float(coord_y_inicio) if coord_y_inicio else None,
@@ -96,48 +102,65 @@ def registrar_incidencia(form, files):
     return nueva, None
 
 def update_incidencia(id: int, form, files):
+    """Actualiza una incidencia evitando sobrescribir con valores vacíos."""
     incidencia = RegIncidencia.query.get(id)
     if not incidencia:
         return None, "Incidencia no encontrada."
 
-    incidencia.tipo_elemento = form.get("tipo_elemento")
+    # ---------- 0. Fecha de ocurrencia ----------
+    fecha_str = (form.get("fecha_ocurrencia") or '').strip()
+    if fecha_str:
+        try:
+            incidencia.fecha_ocurrencia = datetime.fromisoformat(fecha_str)
+        except ValueError:
+            pass  # Si prefieres, devuelve error en lugar de ignorar
+    # ---------- 1. Tipo de elemento ----------
+    tipo_el_form = (form.get("tipo_elemento") or '').strip()
+    tipo_el      = tipo_el_form or incidencia.tipo_elemento
+    incidencia.tipo_elemento = tipo_el
 
-    if incidencia.tipo_elemento == 'Vano':
-        ini = form.get("codigo_inicio") or ''
-        fin = form.get("codigo_fin") or ''
-        nuevo_codigo = f"{ini} – {fin}" if (ini and fin) else (ini or fin)
-        incidencia.codigo_elemento     = nuevo_codigo
-        incidencia.descripcion_elemento = nuevo_codigo
+    # ---------- 2. Según sea Vano o no ----------
+    if tipo_el == 'Vano':
+        ini = (form.get("codigo_inicio") or '').strip()
+        fin = (form.get("codigo_fin") or '').strip()
 
-        # Extraer alicodigo desde el nodo “ini” de nuevo
-        if ini:
-            datos_ini = obtener_datos_elemento('Estructura MT', ini) or {}
-            alicodigo_nuevo = datos_ini.get("alicodigo")
-            if alicodigo_nuevo:
-                incidencia.alicodigo = alicodigo_nuevo
+        if ini or fin:  # solo actualizo si llega alguno
+            nuevo_codigo = f"{ini} – {fin}" if (ini and fin) else (ini or fin)
+            incidencia.codigo_elemento      = nuevo_codigo
+            incidencia.descripcion_elemento = nuevo_codigo
 
-        # coord_x_inicio / coord_y_inicio / coord_x_fin / coord_y_fin
-        # ya vienen rellenadas en el formulario, así que no las tocas aquí.
+            # refrescar alicodigo con el nodo ini (si lo hay)
+            if ini:
+                datos_ini = obtener_datos_elemento('Estructura MT', ini) or {}
+                incidencia.alicodigo = datos_ini.get("alicodigo") or incidencia.alicodigo
 
-    else:
-        incidencia.codigo_elemento     = form.get("codigo_elemento")
-        datos = obtener_datos_elemento(incidencia.tipo_elemento,
-                                       incidencia.codigo_elemento) or {}
-        incidencia.descripcion_elemento = datos.get("descripcion")
-        x0 = datos.get("pro_x")  or datos.get("sub_x")  \
-           or datos.get("trafo_x") or datos.get("sum_x")  \
-           or datos.get("poste_x")
-        y0 = datos.get("pro_y")  or datos.get("sub_y")  \
-           or datos.get("trafo_y") or datos.get("sum_y")  \
-           or datos.get("poste_y")
+    else:  # No-Vano
+        codigo_form = (form.get("codigo_elemento") or '').strip()
+        if codigo_form:                       # evita dejarlo en blanco
+            incidencia.codigo_elemento = codigo_form
 
-        incidencia.coord_x_inicio = float(x0) if x0 is not None else incidencia.coord_x_inicio
-        incidencia.coord_y_inicio = float(y0) if y0 is not None else incidencia.coord_y_inicio
-        incidencia.alicodigo      = datos.get("alicodigo") or incidencia.alicodigo
+            datos = obtener_datos_elemento(tipo_el, codigo_form) or {}
+            incidencia.descripcion_elemento = (
+                datos.get("descripcion") or incidencia.descripcion_elemento
+            )
 
-    incidencia.ocurrencia = form.get("ocurrencia")
+            # intentar refrescar coordenadas
+            x0 = (datos.get("pro_x") or datos.get("sub_x") or datos.get("trafo_x") or
+                  datos.get("sum_x") or datos.get("poste_x"))
+            y0 = (datos.get("pro_y") or datos.get("sub_y") or datos.get("trafo_y") or
+                  datos.get("sum_y") or datos.get("poste_y"))
+            if x0 is not None and y0 is not None:
+                incidencia.coord_x_inicio = float(x0)
+                incidencia.coord_y_inicio = float(y0)
 
-    # Procesar evidencias nuevas (igual que antes)…
+            incidencia.alicodigo = datos.get("alicodigo") or incidencia.alicodigo
+
+    # ---------- 3. Ocurrencia ----------
+    ocur_form = (form.get("ocurrencia") or '').strip()
+    if ocur_form:
+        incidencia.ocurrencia = ocur_form
+
+    # ---------- 4. Evidencias nuevas ----------
     upload_folder = current_app.config["UPLOAD_FOLDER"]
     os.makedirs(upload_folder, exist_ok=True)
     for archivo in files.getlist("evidencia"):

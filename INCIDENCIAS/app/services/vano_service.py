@@ -1,226 +1,193 @@
-# app/services/vano_service.py
+# app/services/vano_service.py  –  versión 3 (mejorada)
+from __future__ import annotations
+
+import logging
+import heapq
+from collections import defaultdict
+from typing import List, Tuple, Dict, Set
+
+import numpy as np
+from scipy.spatial import KDTree
+import pyodbc
 
 from app.database.sqlserver import get_sqlserver_connection
-import pyodbc
-import logging
-from scipy.spatial import KDTree
-import numpy as np
 
-def obtener_trazo_vanos(codigo_inicio: str, codigo_fin: str):
-    """
-    Dado el NodNtcse inicial (estructura A) y final (estructura B),
-    esta función construye el “camino de vanos” entre A y B. Usa un BFS
-    y, cuando no existe un VanCodigoAnt explícito, hace un fallback
-    calculando el vano cuyo extremo (VanX2, VanY2) esté más cerca al
-    comienzo del vano actual (VanX1, VanY1).
 
-    Retorna tupla (camino_de_vanodos, polilinea) donde:
-      - camino_de_vanodos = [VanCodigo1, VanCodigo2, ..., VanCodigoN]
-        en orden A→B. Si no existe ruta, devuelve ([], []).
-      - polilinea = [(lat1, lng1), (lat2, lng2), ...] cuyos puntos son
-        exactamente (VanY1, VanX1) del primer tramo, luego (VanY2, VanX2)
-        de cada tramo en orden. Si no existe ruta, devuelve ([], []).
-    """
-    conn = None
-    cursor = None
+# ───────── Parámetros globales ─────────
+EPS           = 3e-6        # ≈ 0.30 m
+MAX_FALLBACK  = 5e-4        # ≈ 55 m  (solo si no hay vecino explícito)
+K_NEIGHBOURS  = 8           # nº de vecinos KD-Tree
+MAX_ANG_DEG   = 120         # giro máximo admitido en fallback
+# ───────────────────────────────────────
+
+
+# ───────── utilidades geométricas ─────────
+def _dist(p1, p2) -> float:
+    return np.hypot(p1[0] - p2[0], p1[1] - p2[1])
+
+
+def _angle(v1, v2) -> float:
+    n1, n2 = np.linalg.norm(v1), np.linalg.norm(v2)
+    if n1 < 1e-9 or n2 < 1e-9:
+        return 180.0
+    cosang = np.clip(np.dot(v1, v2) / (n1 * n2), -1, 1)
+    return np.degrees(np.arccos(cosang))
+
+
+def _round_key(x: float, y: float, tol: float = EPS) -> tuple[int, int]:
+    """Clave entera estable para agrupar puntos dentro de ±EPS."""
+    scale = 1.0 / tol
+    return int(round(x * scale)), int(round(y * scale))
+# ─────────────────────────────────────────
+
+
+# ───────── Algoritmo principal ─────────
+Camino     = List[int]
+Polilinea  = List[Tuple[float, float]]      # [(lat, lng), …]
+
+
+def obtener_trazo_vanos(
+    codigo_inicio: str,
+    codigo_fin: str
+) -> Tuple[Camino, Polilinea]:
+
+    conn = cur = None
     try:
+        # 1) Datos de los postes A y B --------------------------
         conn = get_sqlserver_connection()
-        cursor = conn.cursor()
+        cur  = conn.cursor()
 
-        # -------------------------------------------------------------
-        # 1) Obtener “nodo interno” (columna 'nodo') para poste A y B,
-        #    filtrando IdEstado=1 y NodBTMT='M'.
-        # -------------------------------------------------------------
-        cursor.execute("""
-            SELECT nodo
+        sql_poste = """
+            SELECT nodo, NodX, NodY
               FROM dbo.EST_Poste
-             WHERE NodNtcse = ?
-               AND IdEstado = 1
-               AND NodBTMT = 'M'
-        """, (codigo_inicio.strip(),))
-        fila_ini = cursor.fetchone()
-        if not fila_ini:
-            # No existe nodo interno MT activo para A → no ruta.
+             WHERE NodNtcse = ? AND IdEstado = 1 AND NodBTMT = 'M'
+        """
+        cur.execute(sql_poste, codigo_inicio.strip())
+        r_ini = cur.fetchone()
+        cur.execute(sql_poste, codigo_fin.strip())
+        r_fin = cur.fetchone()
+        if not r_ini or not r_fin:
             return [], []
-        nodo_ini = fila_ini[0]
 
-        cursor.execute("""
-            SELECT nodo
-              FROM dbo.EST_Poste
-             WHERE NodNtcse = ?
-               AND IdEstado = 1
-               AND NodBTMT = 'M'
-        """, (codigo_fin.strip(),))
-        fila_fin = cursor.fetchone()
-        if not fila_fin:
-            # No existe nodo interno MT activo para B → no ruta.
-            return [], []
-        nodo_fin = fila_fin[0]
+        nodo_ini, x_ini, y_ini = int(r_ini.nodo), float(r_ini.NodX), float(r_ini.NodY)
+        nodo_fin               = int(r_fin.nodo)
 
-        # -------------------------------------------------------------
-        # 2) Cargar en memoria todos los vanos activos (IdEstado = 1),
-        #    obteniendo VanCodigo, VanCodigoAnt, nodoposte, VanX1, VanY1, VanX2, VanY2.
-        # -------------------------------------------------------------
-        cursor.execute("""
-            SELECT VanCodigo, VanCodigoAnt, nodoposte, VanX1, VanY1, VanX2, VanY2
+        # 2) Vanos MT activos ----------------------------------
+        cur.execute("""
+            SELECT VanCodigo, VanCodigoAnt, nodoposte,
+                   VanX1, VanY1, VanX2, VanY2
               FROM dbo.RDP_Vano
              WHERE IdEstado = 1
         """)
-        rows = cursor.fetchall()
+        rows = cur.fetchall()
+        if not rows:
+            return [], []
 
-        # Construimos listas paralelas en Python:
-        #   vanos_list  = [ { "VanCodigo":…, "VanCodigoAnt":…, "nodoposte":…, "VanX1":…, "VanY1":…, "VanX2":…, "VanY2":… }, … ]
-        vanos_list = []
-        for (vc, vca, nodo, x1, y1, x2, y2) in rows:
-            vanos_list.append({
-                "VanCodigo":     int(vc),
-                "VanCodigoAnt":  None if vca is None else int(vca),
-                "nodoposte":     int(nodo),
-                "VanX1":         float(x1),
-                "VanY1":         float(y1),
-                "VanX2":         float(x2),
-                "VanY2":         float(y2)
+        vlist = []
+        for r in rows:
+            vlist.append({
+                "vc":  int(r.VanCodigo),
+                "ant": None if r.VanCodigoAnt is None else int(r.VanCodigoAnt),
+                "npo": int(r.nodoposte),
+                "x1":  float(r.VanX1), "y1": float(r.VanY1),
+                "x2":  float(r.VanX2), "y2": float(r.VanY2),
             })
 
-        # Si no hay vanos activos en toda la tabla, devolvemos vacíos:
-        if not vanos_list:
+        idx: Dict[int, int] = {v["vc"]: i for i, v in enumerate(vlist)}
+
+        # grafo “hijos”
+        hijos: Dict[int, List[int]] = defaultdict(list)
+        for v in vlist:
+            if v["ant"] is not None:
+                hijos[v["ant"]].append(v["vc"])
+
+        # 2.1) Índice coord → vanos cuyo extremo (x2,y2) coincide
+        coord2van: Dict[tuple[int, int], List[int]] = defaultdict(list)
+        for v in vlist:
+            coord2van[_round_key(v["x2"], v["y2"])].append(v["vc"])
+
+        # KD-Tree sobre extremos (x2,y2) para fallback
+        t_end = KDTree([(v["x2"], v["y2"]) for v in vlist])
+
+        # 3) Dijkstra inverso ---------------------------------
+        inicio = [v["vc"] for v in vlist if v["npo"] == nodo_fin]
+        if not inicio:
             return [], []
 
-        # Mapeamos VanCodigo → índice en vanos_list (para fácil lookup)
-        cod2idx = {v["VanCodigo"]: idx for idx, v in enumerate(vanos_list)}
+        heap: List[Tuple[float, Camino]] = [(0.0, [vc]) for vc in inicio]
+        mejor_coste: Dict[int, float]    = {vc: 0.0 for vc in inicio}
 
-        # Construimos la lista de endpoints [(x2,y2), ...] en el mismo orden de vanos_list.
-        endpoints = [(v["VanX2"], v["VanY2"]) for v in vanos_list]
+        while heap:
+            coste, camino = heapq.heappop(heap)
+            actual        = camino[-1]
+            vact          = vlist[idx[actual]]
 
-        # Armamos un KDTree para hacer consultas “¿qué (x2,y2) está más cerca de este (x1,y1)?”
-        tree = KDTree(endpoints)
+            # 3.1) Condición de parada (llegó al poste A)
+            if (_dist((vact["x1"], vact["y1"]), (x_ini, y_ini)) < EPS
+                    or vact["npo"] == nodo_ini):
+                camino.reverse()                       # A → B
+                pol, first = [], True
+                for vc in camino:
+                    inf = vlist[idx[vc]]
+                    if first:
+                        pol.append((inf["y1"], inf["x1"]))
+                        first = False
+                    pol.append((inf["y2"], inf["x2"]))
+                return camino, pol
 
-        # -------------------------------------------------------------
-        # 3) Encontrar TODOS los VanCodigo que terminan en nodo_fin
-        # -------------------------------------------------------------
-        #   SELECT VanCodigo FROM RDP_Vano WHERE nodoposte = nodo_fin AND IdEstado = 1
-        initial_cursor = conn.cursor()
-        initial_cursor.execute("""
-            SELECT VanCodigo
-              FROM dbo.RDP_Vano
-             WHERE nodoposte = ?
-               AND IdEstado = 1
-        """, (nodo_fin,))
-        vs = initial_cursor.fetchall()
-        initial_cursor.close()
+            # 3.2) Vecinos “naturales” ------------------------
+            vecinos: Set[int] = set()
+            if vact["ant"] is not None:
+                vecinos.add(vact["ant"])
+            vecinos.update(hijos.get(actual, []))
 
-        if not vs:
-            # No hay ningún vano que termine en el nodo de la estructura B
-            return [], []
+            #    + Vecinos que comparten coordenada ----------
+            key1 = _round_key(vact["x1"], vact["y1"])   # extremo inicial
+            key2 = _round_key(vact["x2"], vact["y2"])   # extremo final
+            vecinos.update(coord2van.get(key1, []))
+            vecinos.update(coord2van.get(key2, []))
+            vecinos.discard(vact["vc"])                 # evita bucle trivial
 
-        # Colectamoslos como lista de enteros
-        vanos_inicio = [int(r[0]) for r in vs]
+            # 3.3) Fallback KD-Tree si aún no hay vecinos ----
+            if not vecinos:
+                dists, idxs = t_end.query((vact["x1"], vact["y1"]), k=K_NEIGHBOURS)
+                if np.isscalar(idxs):           # k = 1
+                    idxs, dists = [int(idxs)], [float(dists)]
 
-        # -------------------------------------------------------------
-        # 4) Hacemos un BFS “hacia atrás” a partir de cada uno de esos VanCodigo,
-        #    para intentar llegar a cualquiera cuyo nodoposte == nodo_ini.
-        # -------------------------------------------------------------
-        from collections import deque
-        queue = deque()
-        visited = set()  # conjunto de VanCodigo que ya pusimos en la busca
+                vec_act = np.array([vact["x2"] - vact["x1"],
+                                    vact["y2"] - vact["y1"]])
 
-        # Cada elemento de queue será (van_codigo_actual, [path hasta aquí]),
-        # donde “path” es la lista de VanCodigo en orden desde B→…→cur.
-        for vc in vanos_inicio:
-            queue.append((vc, [vc]))
-            visited.add(vc)
+                for dist, ii in zip(dists, idxs):
+                    if dist > MAX_FALLBACK:
+                        break
+                    cand = vlist[ii]
+                    ang  = _angle(vec_act,
+                                  np.array([cand["x2"] - cand["x1"],
+                                            cand["y2"] - cand["y1"]]))
+                    if ang > MAX_ANG_DEG:
+                        continue
+                    vecinos.add(cand["vc"])
 
-        camino_final = None
-        while queue:
-            cur_van, path = queue.popleft()
+            # 3.4) Expansión de vecinos ----------------------
+            for vn in vecinos:
+                nuevo_coste = coste + _dist(
+                    (vact["x1"], vact["y1"]),
+                    (vlist[idx[vn]]["x1"], vlist[idx[vn]]["y1"])
+                )
+                if nuevo_coste < mejor_coste.get(vn, 1e9):
+                    mejor_coste[vn] = nuevo_coste
+                    heapq.heappush(heap, (nuevo_coste, camino + [vn]))
 
-            # Extraemos los datos de cur_van desde vanos_list:
-            idx = cod2idx.get(cur_van)
-            if idx is None:
-                # por alguna razón no tenemos ese VanCodigo en vanos_list
-                continue
-            info = vanos_list[idx]
-            nodo_dest = info["nodoposte"]
-
-            # 4.1) Si este vano “llega” a nodo_ini, lo tomamos como final y terminamos
-            if nodo_dest == nodo_ini:
-                camino_final = path[:]  # path ya va de B→…→cur_van
-                break
-
-            # 4.2) Si existe un VanCodigoAnt explícito, lo encolamos
-            van_ant = info["VanCodigoAnt"]
-            if van_ant is not None:
-                if van_ant not in visited:
-                    visited.add(van_ant)
-                    queue.append((van_ant, path + [van_ant]))
-            else:
-                # 4.3) Si VanCodigoAnt es NULL, hacemos fallback espacial:
-                #      Buscamos hasta K = 3 vanos cuyo (VanX2,VanY2) esté más cerca al (VanX1,VanY1)
-                x1 = info["VanX1"]
-                y1 = info["VanY1"]
-
-                # KDTree.query devuelve los K índices más cercanos; devuelve
-                #   dists = array de distancias,
-                #   idxs  = array de índices en endpoints que son los más cercanos
-                K = 3
-                dists, idxs = tree.query((x1, y1), k=K)
-
-                # Si K=1, idxs vendrá como un solo valor en vez de lista; lo normalizamos:
-                if not isinstance(idxs, (list, tuple, np.ndarray)):
-                    idxs = [idxs]
-                    dists = [dists]
-
-                # Encolamos cada uno de esos van candidatos, en orden crece de distancia Euclidiana:
-                for ii in idxs:
-                    van_cand = vanos_list[ii]["VanCodigo"]
-                    if van_cand not in visited:
-                        visited.add(van_cand)
-                        queue.append((van_cand, path + [van_cand]))
-
-        # Si no hallamos ningún camino
-        if camino_final is None:
-            logging.warning(
-                f"obtener_trazo_vanos: no se encontró ruta válida "
-                f"entre '{codigo_inicio}' y '{codigo_fin}'."
-            )
-            return [], []
-
-        # -------------------------------------------------------------
-        # 5) Invertimos camino_final (hoy está de B→…→A). Queremos A→B.
-        # -------------------------------------------------------------
-        camino_final.reverse()  # ahora está en orden A→…→B
-
-        # -------------------------------------------------------------
-        # 6) A partir de cada VanCodigo en camino_final, construimos la polilínea:
-        #    [(lat1, lng1), (lat2, lng2), …] donde cada tramo añade
-        #      - si es el primer tramo, append (VanY1, VanX1)
-        #      - luego append siempre (VanY2, VanX2)
-        # -------------------------------------------------------------
-        polilinea = []
-        first = True
-        for van_cd in camino_final:
-            idx = cod2idx[van_cd]
-            info = vanos_list[idx]
-            x1, y1, x2, y2 = info["VanX1"], info["VanY1"], info["VanX2"], info["VanY2"]
-            if first:
-                polilinea.append((y1, x1))
-                first = False
-            polilinea.append((y2, x2))
-
-        return camino_final, polilinea
+        # No se encontró ruta
+        return [], []
 
     except pyodbc.Error as e:
-        logging.error(f"Error en SQL al buscar ruta: {e}")
+        logging.error("VanService SQL error: %s", e)
         return [], []
 
     finally:
-        if cursor:
-            try:
-                cursor.close()
-            except:
-                pass
-        if conn:
-            try:
-                conn.close()
-            except:
-                pass
+        try:
+            cur and cur.close()
+            conn and conn.close()
+        except Exception:
+            pass
